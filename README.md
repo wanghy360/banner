@@ -2,6 +2,9 @@
 [![Apache 2.0 License](https://img.shields.io/badge/license-Apache%202.0-blue.svg?style=flat)](http://www.apache.org/licenses/LICENSE-2.0.html)
 
 <br>
+fork from https://github.com/youth5201314/banner
+
+<br>
 
 现在Banner支持自定义ItemView,只要继承LoopAdapter，实现里面的getItemView方法。
 <br>
