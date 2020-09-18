@@ -1,5 +1,7 @@
 package com.youth.banner.listener;
 
+import android.view.View;
+
 public interface OnBannerListener {
-    public void OnBannerClick(int position);
+    void onBannerClick(int position, View view);
 }

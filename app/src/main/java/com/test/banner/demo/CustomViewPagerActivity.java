@@ -2,6 +2,7 @@ package com.test.banner.demo;
 
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
+import android.view.View;
 import android.view.ViewGroup;
 import android.widget.RelativeLayout;
 
@@ -30,7 +31,7 @@ public class CustomViewPagerActivity extends AppCompatActivity implements OnBann
     }
 
     @Override
-    public void OnBannerClick(int position) {
+    public void onBannerClick(int position, View view) {
 
     }
 

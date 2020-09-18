@@ -59,9 +59,10 @@ public class LoopLayout extends FrameLayout implements ViewPager.OnPageChangeLis
     private int count = 0;
     private int currentItem;
     private int gravity = -1;
-    private int lastPosition = 1;
+    private int lastPosition = START_POSITION;
     private List<String> titles;
-    private List<View> views;
+    private static int NUM = 1314520;//轮播的最大数值
+    private static int START_POSITION = NUM / 2;//轮播的开始position
     private List<ImageView> indicatorImages;
     protected Context context;
     private BannerViewPager viewPager;
@@ -73,7 +74,6 @@ public class LoopLayout extends FrameLayout implements ViewPager.OnPageChangeLis
     private ViewPager.OnPageChangeListener mOnPageChangeListener;
     private OnBannerListener listener;
     private LoopAdapter loopAdapter;
-    private Observer observer;
 
     private final WeakHandler handler = new WeakHandler();
 
@@ -96,21 +96,31 @@ public class LoopLayout extends FrameLayout implements ViewPager.OnPageChangeLis
         init(context, attrs);
     }
 
+    public BannerViewPager getViewPager() {
+        return viewPager;
+    }
+
+
     public void setAdapter(LoopAdapter adapter) {
         if (adapter == null) {
             throw new IllegalStateException("Adapter cannot be null.");
         }
         //If setAdapter before,clear data and Observer.
         if (loopAdapter != null) {
-            this.views.clear();
             this.indicatorImages.clear();
             stopAutoPlay();
             loopAdapter.deleteObservers();
         }
         loopAdapter = adapter;
-        observer = new LoopObserver();
+        Observer observer = new LoopObserver();
         adapter.registerObserver(observer);
         refreshData();
+    }
+
+    public void refresh() {
+        if (loopAdapter != null) {
+            loopAdapter.notifyDataSetChanged();
+        }
     }
 
     private class LoopObserver implements Observer {
@@ -135,7 +145,6 @@ public class LoopLayout extends FrameLayout implements ViewPager.OnPageChangeLis
     protected void init(@NonNull Context context, @Nullable AttributeSet attrs) {
         this.context = context;
         titles = new ArrayList<>();
-        views = new ArrayList<>();
         indicatorImages = new ArrayList<>();
         DisplayMetrics dm = context.getResources().getDisplayMetrics();
         indicatorSize = dm.widthPixels / 80;
@@ -143,7 +152,6 @@ public class LoopLayout extends FrameLayout implements ViewPager.OnPageChangeLis
     }
 
     private void initView(Context context, AttributeSet attrs) {
-        views.clear();
         handleTypedArray(context, attrs);
         View view = LayoutInflater.from(context).inflate(mLayoutResId, this, true);
         bannerDefaultImage = (ImageView) view.findViewById(R.id.bannerDefaultImage);
@@ -206,6 +214,11 @@ public class LoopLayout extends FrameLayout implements ViewPager.OnPageChangeLis
     }
 
     private void startLoop() {
+        if (count < 2) {
+            currentItem = 0;
+        } else {
+            currentItem = START_POSITION + (lastPosition - START_POSITION) % count;
+        }
         setBannerStyleUI();
         setImageList();
         setData();
@@ -259,7 +272,6 @@ public class LoopLayout extends FrameLayout implements ViewPager.OnPageChangeLis
     }
 
     private void initImages() {
-        views.clear();
         if (bannerStyle == BannerConfig.CIRCLE_INDICATOR ||
                 bannerStyle == BannerConfig.CIRCLE_INDICATOR_TITLE ||
                 bannerStyle == BannerConfig.CIRCLE_INDICATOR_TITLE_INSIDE) {
@@ -279,9 +291,6 @@ public class LoopLayout extends FrameLayout implements ViewPager.OnPageChangeLis
         }
         bannerDefaultImage.setVisibility(GONE);
         initImages();
-        for (int i = 0; i <= count + 1; i++) {
-            views.add(loopAdapter.getItemView(context, toRealPosition(i)));
-        }
     }
 
     private void createIndicator() {
@@ -294,7 +303,7 @@ public class LoopLayout extends FrameLayout implements ViewPager.OnPageChangeLis
             LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(mIndicatorWidth, mIndicatorHeight);
             params.leftMargin = mIndicatorMargin;
             params.rightMargin = mIndicatorMargin;
-            if (i == 0) {
+            if (toRealPosition(currentItem) == i) {
                 imageView.setImageResource(mIndicatorSelectedResId);
             } else {
                 imageView.setImageResource(mIndicatorUnselectedResId);
@@ -303,21 +312,21 @@ public class LoopLayout extends FrameLayout implements ViewPager.OnPageChangeLis
             if (bannerStyle == BannerConfig.CIRCLE_INDICATOR ||
                     bannerStyle == BannerConfig.CIRCLE_INDICATOR_TITLE)
                 indicator.addView(imageView, params);
-            else if (bannerStyle == BannerConfig.CIRCLE_INDICATOR_TITLE_INSIDE)
+            else if (bannerStyle == BannerConfig.CIRCLE_INDICATOR_TITLE_INSIDE) {
                 indicatorInside.addView(imageView, params);
+            }
         }
     }
 
 
     private void setData() {
-        currentItem = 1;
         if (adapter == null) {
             adapter = new BannerPagerAdapter();
             viewPager.addOnPageChangeListener(this);
         }
         viewPager.setAdapter(adapter);
         viewPager.setFocusable(true);
-        viewPager.setCurrentItem(1);
+        viewPager.setCurrentItem(currentItem);
         if (gravity != -1)
             indicator.setGravity(gravity);
         if (isScroll && count > 1) {
@@ -343,14 +352,13 @@ public class LoopLayout extends FrameLayout implements ViewPager.OnPageChangeLis
         @Override
         public void run() {
             if (count > 1 && isAutoPlay) {
-                currentItem = currentItem % (count + 1) + 1;
-                if (currentItem == 1) {
-                    viewPager.setCurrentItem(currentItem, false);
-                    handler.post(task);
+                if (currentItem == NUM - 1) {
+                    currentItem = 0;
                 } else {
-                    viewPager.setCurrentItem(currentItem);
-                    handler.postDelayed(task, delayTime);
+                    currentItem++;
                 }
+                viewPager.setCurrentItem(currentItem);
+                handler.postDelayed(task, delayTime);
             }
         }
     };
@@ -375,12 +383,13 @@ public class LoopLayout extends FrameLayout implements ViewPager.OnPageChangeLis
      * @return 下标从0开始
      */
     public int toRealPosition(int position) {
-        if (position == 0) {
-            return count - 1;
-        } else if (position == count + 1) {
-            return 0;
+        if (count < 2) {
+            return position;
+        }
+        if (position >= START_POSITION) {
+            return (position - START_POSITION) % count;
         } else {
-            return position - 1;
+            return (count - (START_POSITION - position) % count) % count;
         }
     }
 
@@ -388,7 +397,7 @@ public class LoopLayout extends FrameLayout implements ViewPager.OnPageChangeLis
 
         @Override
         public int getCount() {
-            return views.size();
+            return count < 2 ? count : NUM;
         }
 
         @Override
@@ -399,10 +408,10 @@ public class LoopLayout extends FrameLayout implements ViewPager.OnPageChangeLis
         @Override
         @NonNull
         public Object instantiateItem(@NonNull ViewGroup container, int position) {
-            container.addView(views.get(position));
-            View view = views.get(position);
-            initItem(view, position);
-            return view;
+            View itemView = loopAdapter.getItemView(context, toRealPosition(position));
+            container.addView(itemView);
+            initItem(itemView, position);
+            return itemView;
         }
 
         @Override
@@ -418,7 +427,7 @@ public class LoopLayout extends FrameLayout implements ViewPager.OnPageChangeLis
             view.setOnClickListener(new OnClickListener() {
                 @Override
                 public void onClick(View v) {
-                    listener.OnBannerClick(toRealPosition(position));
+                    listener.onBannerClick(toRealPosition(position), v);
                 }
             });
         }
@@ -428,25 +437,6 @@ public class LoopLayout extends FrameLayout implements ViewPager.OnPageChangeLis
     public void onPageScrollStateChanged(int state) {
         if (mOnPageChangeListener != null) {
             mOnPageChangeListener.onPageScrollStateChanged(state);
-        }
-//        Log.i(tag,"currentItem: "+currentItem);
-        switch (state) {
-            case 0://No operation
-                if (currentItem == 0) {
-                    viewPager.setCurrentItem(count, false);
-                } else if (currentItem == count + 1) {
-                    viewPager.setCurrentItem(1, false);
-                }
-                break;
-            case 1://start Sliding
-                if (currentItem == count + 1) {
-                    viewPager.setCurrentItem(1, false);
-                } else if (currentItem == 0) {
-                    viewPager.setCurrentItem(count, false);
-                }
-                break;
-            case 2://end Sliding
-                break;
         }
     }
 
@@ -463,15 +453,15 @@ public class LoopLayout extends FrameLayout implements ViewPager.OnPageChangeLis
         if (mOnPageChangeListener != null) {
             mOnPageChangeListener.onPageSelected(toRealPosition(position));
         }
+        int realPosition = toRealPosition(position);
         if (bannerStyle == BannerConfig.CIRCLE_INDICATOR ||
                 bannerStyle == BannerConfig.CIRCLE_INDICATOR_TITLE ||
                 bannerStyle == BannerConfig.CIRCLE_INDICATOR_TITLE_INSIDE) {
-            indicatorImages.get((lastPosition - 1 + count) % count).setImageResource(mIndicatorUnselectedResId);
-            indicatorImages.get((position - 1 + count) % count).setImageResource(mIndicatorSelectedResId);
+
+            indicatorImages.get(toRealPosition(lastPosition)).setImageResource(mIndicatorUnselectedResId);
+            indicatorImages.get(realPosition).setImageResource(mIndicatorSelectedResId);
             lastPosition = position;
         }
-        if (position == 0) position = count;
-        if (position > count) position = 1;
         switch (bannerStyle) {
             case BannerConfig.CIRCLE_INDICATOR:
                 break;
@@ -480,13 +470,13 @@ public class LoopLayout extends FrameLayout implements ViewPager.OnPageChangeLis
                 break;
             case BannerConfig.NUM_INDICATOR_TITLE:
                 numIndicatorInside.setText(String.format(getContext().getString(R.string.count_percent), count));
-                bannerTitle.setText(titles.get(position - 1));
+                bannerTitle.setText(titles.get(realPosition));
                 break;
             case BannerConfig.CIRCLE_INDICATOR_TITLE:
-                bannerTitle.setText(titles.get(position - 1));
+                bannerTitle.setText(titles.get(realPosition));
                 break;
             case BannerConfig.CIRCLE_INDICATOR_TITLE_INSIDE:
-                bannerTitle.setText(titles.get(position - 1));
+                bannerTitle.setText(titles.get(realPosition));
                 break;
         }
 
